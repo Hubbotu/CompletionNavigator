@@ -46,4 +46,10 @@ CN.RegisterLocale("zhCN", {
     ["instanced"] = "å‰¯æœ¬ä¸­",
     ["%d more"] = "è¿˜å·® %d",
     ["Nothing is on a clock right now."] = "ç›®å‰æ²¡æœ‰è®¡æ—¶çš„äº‹é¡¹ã€‚",
+
+    -- 1.10.0. The words the addon says instead of presenting an answer
+    -- built from data it knows has not arrived yet.
+    ["Still hearing back about %s; this may change."] = "ä»åœ¨ç­‰å¾…%sçš„ä¿¡æ¯ï¼Œç»“æžœå¯èƒ½ä¼šå˜åŒ–ã€‚",
+    ["your lockouts"] = "ä½ çš„å‰¯æœ¬é”å®š",
+    ["your mailbox"] = "ä½ çš„é‚®ç®±",
 })

@@ -348,6 +348,18 @@ Every list can be sorted A to Z or reversed, and sorting reads the words rather 
 
 A row that does something carries a marker, not just a slightly brighter grey â€” colour alone is not an explanation, and it is no explanation at all to the one player in twelve who cannot see the difference. A button that cannot act is drawn as unavailable rather than left looking live. A checkbox's words are part of what you can hover, not just the box. And a search that matches nothing says so, instead of falling back to the message about never having scanned.
 
+## When the answer is not settled yet
+
+Some of what the ranking depends on has to be asked for. Your raid and dungeon lockouts and your mailbox are not sitting in the client at login â€” the addon sends a request and the server answers a moment later, and until it does, "you are saved to nothing" and "the answer has not arrived" look identical.
+
+In those first seconds the addon says which it is:
+
+> Still hearing back about your lockouts and your mailbox; this may change.
+
+It still gives you the answer. An addon that shows nothing for four seconds after every loading screen is worse than one that tells you what it is still waiting on. The line appears in chat, on the heads-up display and in the window, and it goes away by itself when the replies land.
+
+It appears only for the things that can change *which* objective is on top. A quest name the client is still fetching changes what a row is called, not where it ranks, so it is not treated as a reason to doubt the answer â€” `/cn selftest` still reports it.
+
 ## When something goes wrong
 
 ```

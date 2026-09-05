@@ -46,4 +46,10 @@ CN.RegisterLocale("ptBR", {
     ["instanced"] = "em uma instÃ¢ncia",
     ["%d more"] = "mais %d",
     ["Nothing is on a clock right now."] = "Nada estÃ¡ expirando agora.",
+
+    -- 1.10.0. The words the addon says instead of presenting an answer
+    -- built from data it knows has not arrived yet.
+    ["Still hearing back about %s; this may change."] = "Ainda aguardando %s; isso pode mudar.",
+    ["your lockouts"] = "seus bloqueios de instÃ¢ncia",
+    ["your mailbox"] = "sua correspondÃªncia",
 })

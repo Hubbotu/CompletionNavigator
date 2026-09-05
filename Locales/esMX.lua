@@ -46,4 +46,10 @@ CN.RegisterLocale("esMX", {
     ["instanced"] = "en una instancia",
     ["%d more"] = "%d mÃ¡s",
     ["Nothing is on a clock right now."] = "Nada caduca ahora mismo.",
+
+    -- 1.10.0. The words the addon says instead of presenting an answer
+    -- built from data it knows has not arrived yet.
+    ["Still hearing back about %s; this may change."] = "AÃºn esperando %s; esto puede cambiar.",
+    ["your lockouts"] = "tus bloqueos de banda",
+    ["your mailbox"] = "tu correo",
 })

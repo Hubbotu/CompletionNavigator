@@ -7,6 +7,57 @@ Authored by Travis A. Bryan I.
 
 ## [Unreleased]
 
+## [1.10.0]
+
+**The addon knew the answer might be wrong and told only its own self-test.**
+
+1.9.0 built a registry so every system that asks the server for something can
+say whether it asked and whether it was answered. It shipped with one reader:
+`/cn selftest`. So in the seconds after a loading screen the addon knew,
+precisely, that the lockout list had not come back â€” and the recommendation
+engine, which ranks instances by what you are saved to, went on printing a
+confident headline and a Why block from data it could have said was
+incomplete. A dungeon you are already saved to is a real recommendation to a
+client whose lockouts have not arrived, and the addon silently changed its
+mind a second later.
+
+### Added
+
+- **The answer says when it is provisional.** `/cn next`, the heads-up line
+  and the main window now carry one sentence while a request the ranking
+  depends on is outstanding: "Still hearing back about your lockouts and your
+  mailbox; this may change." The answer is still shown â€” an addon that shows
+  nothing for four seconds after every loading screen is worse than one that
+  shows a caveat â€” it just stops claiming more than it knows. In chat and in
+  the window the line goes ABOVE the answer, in the position the group notice
+  already uses, because it changes how to read what follows; in the Why block
+  it sits above the reasons rather than among them, since "the lockout list
+  has not come back" is a statement about the whole answer and not a reason to
+  do this particular thing.
+
+- **A server request carries a player-facing token as well as a diagnostic
+  label.** The labels were written for one reader in English; reusing them
+  would have put untranslated nouns inside a translated sentence, and nothing
+  would have complained, because `CN.L` falls back to English by design and
+  the canonical-key lint only sees keys that exist. The registration now
+  carries both, the two nouns are canonical keys translated into all ten
+  shipped locales, and the suite asserts that every token on every
+  registration is a key the addon actually declares.
+
+- **Quest titles are deliberately not in the notice.** An outstanding title
+  changes what a row is called; nothing in the ranking reads a name. Including
+  them would also have made the heads-up line flip between a reason and a
+  caveat every few seconds during ordinary play â€” titles go outstanding
+  continuously, which is what `CN.burstInvalidationEvents` debounces
+  `QUEST_DATA_LOAD_RESULT` for â€” for a caveat that was not true of the answer.
+  They stay registered and stay in `/cn selftest`, which is the reader their
+  count was written for.
+
+- **The notice asks both halves of the pair.** A client that offers no way to
+  send the request produces no notice, the same distinction 1.9.0 was built
+  around. This is the second cross-cutting reader of that pair, which is
+  exactly where the first one got it wrong, so the suite checks it here too.
+
 ## [1.9.0]
 
 **Four copies of one pattern, and the first thing to read across them asked

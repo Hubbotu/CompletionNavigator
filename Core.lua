@@ -18,7 +18,7 @@ local ADDON_NAME, CN = ...
 _G.CompletionNavigator = CN
 
 CN.name        = ADDON_NAME
-CN.version     = "1.9.0"
+CN.version     = "1.10.0"
 CN.dbVersion   = 39
 
 -- Where the addon's own textures live. Referenced by the .toc IconTexture
@@ -503,11 +503,27 @@ end
 -- this right.
 CN.serverRequests = CN.serverRequests or {}
 
--- definition = { label, asked = function() end, answered = function() end }
+-- definition = { label, token, asked = function() end,
+--                answered = function() end }
 --
 -- `asked` must be false when the client offers no way to ask. That is the
 -- distinction the defect above turned on, so it is what the field is named
 -- for rather than being left to each caller's judgement.
+--
+-- `token` IS THE PLAYER-FACING HALF, AND IT IS SEPARATE ON PURPOSE. 1.10.0.
+--
+-- `label` was written for a diagnostic. Diagnostics are read by one person in
+-- English and the addon's own header says so; player-facing sentences go
+-- through the locale table, and every canonical key is linted for being both
+-- used and translated. 1.10.0 puts these words in front of every player, so
+-- promoting `label` would have moved three strings out of the locale system's
+-- reach without any lint noticing -- the exact shape `Modules/Inventory.lua`
+-- records and `Modules/Follow.lua` reproduced a release after citing it.
+--
+-- So the registration carries both: a label that may be a count and is read
+-- by `/cn selftest`, and a token that is a canonical locale key. A definition
+-- with no token is still valid -- the keystone is registered by nothing and a
+-- future system may be diagnostic-only -- but it is invisible to the notice.
 function CN.RegisterServerRequest(definition)
     local labelKind = type(type(definition) == "table" and definition.label)
 
@@ -516,6 +532,10 @@ function CN.RegisterServerRequest(definition)
         or type(definition.asked) ~= "function"
         or type(definition.answered) ~= "function" then
 
+        return false
+    end
+
+    if definition.token ~= nil and type(definition.token) ~= "string" then
         return false
     end
 
@@ -558,6 +578,60 @@ function CN.OutstandingServerRequests()
     end
 
     return outstanding
+end
+
+-- A FACT THE ADDON COMPUTES AND ONLY EVER SHOWS A DIAGNOSTIC IS A FACT THE
+-- PRODUCT IS NOT USING. 1.10.0.
+--
+-- 1.9.0 built the registry above because a self-test was reporting requests as
+-- unanswered that the client had never been able to send. It shipped with
+-- exactly one consumer: `Modules/SelfTest.lua`. So the addon knew, precisely,
+-- that the lockout list had not come back -- and the recommendation engine,
+-- which ranks instances by what you are saved to, went on answering "do this
+-- dungeon next" with a confident headline and a Why block, from data it could
+-- have said was incomplete.
+--
+-- The window where that matters is small and it is the window every session
+-- opens in: the seconds after a loading screen, which is when a player who
+-- has just logged in types `/cn` or glances at the heads-up line. The answer
+-- given there is not merely unstable -- it can be wrong. A dungeon you are
+-- already saved to is a real recommendation to a client whose lockout list
+-- has not arrived, and the addon silently changes its mind a second later.
+--
+-- Two sentences of restraint rather than a spinner: the answer is still shown,
+-- because an addon that shows nothing for four seconds after every loading
+-- screen is worse than one that shows a caveat. What changes is that it stops
+-- claiming more than it knows.
+--
+-- Returns nil when there is nothing outstanding, so every caller is one `if`.
+function CN.ProvisionalNotice()
+    local waiting = {}
+    local seen    = {}
+
+    for _, request in ipairs(CN.serverRequests) do
+        -- Tokens only. See `RegisterServerRequest`: `label` is the diagnostic
+        -- half and is not translated.
+        if type(request.token) == "string" and request.token ~= "" then
+            local askedOk, asked = pcall(request.asked)
+
+            if askedOk and asked then
+                local answeredOk, answered = pcall(request.answered)
+
+                if answeredOk and not answered and not seen[request.token] then
+                    seen[request.token] = true
+
+                    table.insert(waiting, CN.L[request.token])
+                end
+            end
+        end
+    end
+
+    if #waiting == 0 then
+        return nil
+    end
+
+    return string.format(CN.L["Still hearing back about %s; this may change."],
+        CN.Series(waiting))
 end
 
 -- AN EVENT THAT FIRES MANY TIMES A SECOND, ANSWERED ONCE.

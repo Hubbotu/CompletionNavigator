@@ -295,6 +295,25 @@ function Hud.Refresh()
     -- happening. It is the wrong thing when the player is nine stops into a
     -- twelve-stop route, which is exactly when a glanceable frame earns its
     -- place on the screen.
+    -- AND WHEN THE ANSWER IS BUILT FROM DATA THAT HAS NOT ARRIVED, SAY THAT
+    -- INSTEAD OF A REASON. 1.10.0.
+    --
+    -- The first reason is the right thing on a glanceable line when the
+    -- addon is confident. In the seconds after a loading screen it is not:
+    -- the lockout list decides whether an instance is offered at all, and
+    -- this frame is exactly what a player who has just logged in looks at.
+    -- A reason for an answer that is about to change is worse than no reason.
+    --
+    -- Below the route counter, because a player nine stops into a route is
+    -- long past login, and route progress is the more useful of the two.
+    -- Only registrations that can change the ANSWER reach this; see
+    -- `Modules/Quests.lua` for the one that deliberately does not.
+    local provisional = CN.ProvisionalNotice()
+
+    if provisional then
+        detail = provisional
+    end
+
     local follow = CN:GetModule("Follow")
 
     if follow and follow.active and (follow.startedWith or 0) > 0 then

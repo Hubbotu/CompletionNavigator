@@ -5289,6 +5289,74 @@ mutate "Modules/Instances.lua" \
     "    CN.Blizzard.ForgetSavedInstanceRequest()" \
     "a loading screen keeps the previous segment's lockout answer"
 
+mutate "Core.lua" \
+    "        if type(request.token) == \"string\" and request.token ~= \"\" then
+            local askedOk, asked = pcall(request.asked)
+
+            if askedOk and asked then" \
+    "        if type(request.token) == \"string\" and request.token ~= \"\" then
+            local askedOk, asked = pcall(request.asked)
+
+            if askedOk then" \
+    "the notice tells a client that cannot ask that it is waiting for a reply"
+
+mutate "Core.lua" \
+    "                if answeredOk and not answered and not seen[request.token] then" \
+    "                if answeredOk and not seen[request.token] then" \
+    "a system that answered is still caveated in the player-facing notice"
+
+mutate "Core.lua" \
+    "        if type(request.token) == \"string\" and request.token ~= \"\" then" \
+    "        if true then" \
+    "a request registered without a player-facing token is put in front of the player"
+
+mutate "Core.lua" \
+    "    if definition.token ~= nil and type(definition.token) ~= \"string\" then
+        return false
+    end" \
+    "    if false then
+        return false
+    end" \
+    "a token that is not a string is stored and thrown on at read time"
+
+mutate "Modules/Instances.lua" \
+    "    token    = \"your lockouts\"," \
+    "" \
+    "the lockout list drops out of the notice the player reads"
+
+mutate "Modules/Quests.lua" \
+    "    -- outstanding quest title changes what a row is CALLED; it does not" \
+    "    token    = \"your mailbox\",
+    -- outstanding quest title changes what a row is CALLED; it does not" \
+    "a quest title outstanding is reported as a caveat on the answer"
+
+mutate "Scoring.lua" \
+    "        local provisional = CN.ProvisionalNotice()
+
+        if provisional then
+            CN.Print(\"|cffffc74f\" .. provisional .. \"|r\")
+        end" \
+    "        local provisional = nil
+
+        if provisional then
+            CN.Print(\"|cffffc74f\" .. provisional .. \"|r\")
+        end" \
+    "/cn next presents an incomplete answer without saying so"
+
+mutate "Modules/Hud.lua" \
+    "    if provisional then
+        detail = provisional
+    end" \
+    "    if false then
+        detail = provisional
+    end" \
+    "the heads-up line gives a reason for an answer that is about to change"
+
+mutate "UI.lua" \
+    "        panel.why:SetText((provisional and (provisional .. \"\\n\\n\") or \"\")" \
+    "        panel.why:SetText((false and (provisional .. \"\\n\\n\") or \"\")" \
+    "the window's Why block claims more than the addon knows"
+
 mutate "Scoring.lua" \
     "            .. CN.Accent(\"/cn clock\") .. \" for what is on a timer.\")" \
     "            .. CN.Accent(\"/cn waiting\") .. \" for what is on a timer.\")" \

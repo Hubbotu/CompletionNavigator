@@ -78,6 +78,7 @@ end)
 -- request at all was reported as waiting for its reply for ever.
 CN.RegisterServerRequest{
     label    = "the lockout list",
+    token    = "your lockouts",
     asked    = function() return CN.Blizzard.AskedForSavedInstances() end,
     answered = function() return Instances.answered end,
 }

@@ -62,6 +62,26 @@ CN.RegisterServerRequest{
         return CN.Count(outstanding, "quest title")
     end,
 
+    -- DELIBERATELY NO `token`, SO THIS IS NOT IN THE PLAYER-FACING NOTICE.
+    -- 1.10.0.
+    --
+    -- `CN.ProvisionalNotice` exists to say that the ANSWER may change. An
+    -- outstanding quest title changes what a row is CALLED; it does not
+    -- change which row is on top, because nothing in `Scoring.lua` ranks on a
+    -- name. The lockout list and the mailbox do change the ranking, which is
+    -- why they carry tokens and this does not.
+    --
+    -- The distinction also keeps the heads-up line still. Titles go
+    -- outstanding continuously during ordinary play -- that is what
+    -- `CN.burstInvalidationEvents` debounces QUEST_DATA_LOAD_RESULT for -- so
+    -- a glanceable frame that reported them would flip between a reason and a
+    -- caveat every few seconds, for a caveat that was not true of the answer.
+    -- The lockout list and the mailbox are asked once, at login, and settle.
+    --
+    -- Still registered, and still in `/cn selftest`: "have all my requests
+    -- come back" is a real question about the client, and that is the reader
+    -- the label's count was written for.
+
     -- Asking IS the pending entry: nothing goes into that table without a
     -- request having gone out beside it.
     asked    = function() return next(CN.pendingQuestLoads or {}) ~= nil end,

@@ -81,6 +81,20 @@ CN.localeKeys = {
     -- list that repeats itself.
     "%d more",
     "Nothing is on a clock right now.",
+
+    -- 1.10.0. The addon has known since 1.9.0 which of its requests to the
+    -- server had not come back; until now it only told a self-test. These are
+    -- the words it says instead of presenting an answer built from data it
+    -- knows is incomplete.
+    --
+    -- The two nouns are TOKENS on the server-request registrations, not the
+    -- labels beside them. Not every registration has one: quest titles are
+    -- registered, are reported by `/cn selftest`, and are deliberately absent
+    -- here, because an outstanding title changes what a row is called and not
+    -- which row is on top.
+    "Still hearing back about %s; this may change.",
+    "your lockouts",
+    "your mailbox",
 }
 
 -- REACHED THROUGH A VARIABLE, NOT A LITERAL.
@@ -102,6 +116,13 @@ CN.localeDynamic = {
     -- translated. "solo" is also looked up literally in the same function.
     ["dead"] = "situation", ["grouped"] = "situation",
     ["instanced"] = "situation",
+
+    -- Core.lua: `CN.L[request.token]` in `CN.ProvisionalNotice`. A server
+    -- request names the noun the player reads; the registry is what makes a
+    -- fifth system a registration rather than a fifth place to get this
+    -- right, so the lookup has to be by variable. 1.10.0.
+    ["your lockouts"] = "server request",
+    ["your mailbox"] = "server request",
 }
 
 CN.RegisterLocale("enUS", {})

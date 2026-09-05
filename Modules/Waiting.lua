@@ -64,6 +64,7 @@ end)
 -- always wrong.
 CN.RegisterServerRequest{
     label    = "your mailbox",
+    token    = "your mailbox",
     asked    = function() return CN.Blizzard.AskedForMail() end,
     answered = function() return Waiting.inboxAnswered end,
 }

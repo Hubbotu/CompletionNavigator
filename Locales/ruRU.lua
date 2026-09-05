@@ -39,4 +39,10 @@ CN.RegisterLocale("ruRU", {
     ["dead"] = "Ð¼ÐµÑ€Ñ‚Ð²",
     ["grouped"] = "Ð² Ð³Ñ€ÑƒÐ¿Ð¿Ðµ",
     ["%d more"] = "ÐµÑ‰Ñ‘ %d",
+
+    -- 1.10.0. The words the addon says instead of presenting an answer
+    -- built from data it knows has not arrived yet.
+    ["Still hearing back about %s; this may change."] = "Ð•Ñ‰Ñ‘ Ð¶Ð´Ñƒ Ð¾Ñ‚Ð²ÐµÑ‚: %s; ÑÑ‚Ð¾ Ð¼Ð¾Ð¶ÐµÑ‚ Ð¸Ð·Ð¼ÐµÐ½Ð¸Ñ‚ÑŒÑÑ.",
+    ["your lockouts"] = "Ð²Ð°ÑˆÐ¸ Ð±Ð»Ð¾ÐºÐ¸Ñ€Ð¾Ð²ÐºÐ¸ Ð¿Ð¾Ð´Ð·ÐµÐ¼ÐµÐ»Ð¸Ð¹",
+    ["your mailbox"] = "Ð²Ð°ÑˆÑƒ Ð¿Ð¾Ñ‡Ñ‚Ñƒ",
 })

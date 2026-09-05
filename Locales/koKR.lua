@@ -38,4 +38,10 @@ CN.RegisterLocale("koKR", {
     ["unknown"] = "ì•Œ ìˆ˜ ì—†ìŒ",
     ["dead"] = "ì‚¬ë§",
     ["grouped"] = "íŒŒí‹° ì¤‘",
+
+    -- 1.10.0. The words the addon says instead of presenting an answer
+    -- built from data it knows has not arrived yet.
+    ["Still hearing back about %s; this may change."] = "%s ì •ë³´ë¥¼ ê¸°ë‹¤ë¦¬ëŠ” ì¤‘ìž…ë‹ˆë‹¤. ê²°ê³¼ê°€ ë°”ë€” ìˆ˜ ìžˆìŠµë‹ˆë‹¤.",
+    ["your lockouts"] = "ì¸ìŠ¤í„´ìŠ¤ ì €ìž¥ ì •ë³´",
+    ["your mailbox"] = "ìš°íŽ¸í•¨",
 })

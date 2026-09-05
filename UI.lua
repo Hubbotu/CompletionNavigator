@@ -1822,7 +1822,18 @@ UI.RegisterTab{
 
         panel.title:SetText(tostring(best.name or best.id))
         panel.type:SetText(CN.TypeBadge(best.type))
-        panel.why:SetText("Why:\n"
+
+        -- THE CAVEAT GOES ABOVE THE REASONS, NOT AMONG THEM. 1.10.0.
+        --
+        -- The Why block is a list of things that are true about this
+        -- objective. "The lockout list has not come back" is not one of them;
+        -- it is a statement about the whole answer, including which objective
+        -- is at the top. Putting it in the list would make it read as a
+        -- reason to do this thing. See `CN.ProvisionalNotice`.
+        local provisional = CN.ProvisionalNotice()
+
+        panel.why:SetText((provisional and (provisional .. "\n\n") or "")
+            .. "Why:\n"
             .. table.concat(CN.ExplainRecommendation(best), "\n"))
 
         local entries = {}

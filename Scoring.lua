@@ -2762,6 +2762,16 @@ CN:RegisterCommand{
             CN.Print("|cffffc74f" .. notice .. "|r")
         end
 
+        -- AND SAY SO WHEN THE ANSWER IS BUILT FROM DATA THAT HAS NOT ARRIVED.
+        -- 1.10.0. Same position and same reasoning as the line above: it
+        -- changes how to read what follows, so it goes before it. See
+        -- `CN.ProvisionalNotice`.
+        local provisional = CN.ProvisionalNotice()
+
+        if provisional then
+            CN.Print("|cffffc74f" .. provisional .. "|r")
+        end
+
         -- One headline, its reasons indented under it. The whole block used
         -- to carry the addon's name on every line.
         CN.PrintBlock(

@@ -73,7 +73,7 @@ $script:DataMark   = '-- CN:DATA:QUESTS'
 # This exists because a stale cn.ps1 is otherwise invisible: it scaffolds a
 # previous release over a newer tree, reports success, and every downstream
 # step then fails for reasons that look unrelated.
-$script:ToolkitVersion = '1.9.0'
+$script:ToolkitVersion = '1.10.0'
 
 # The repository the CI commands ask about. Derived from the git remote when
 # there is one, so a fork does not report the upstream's builds.
@@ -121,7 +121,7 @@ local ADDON_NAME, CN = ...
 _G.CompletionNavigator = CN
 
 CN.name        = ADDON_NAME
-CN.version     = "1.9.0"
+CN.version     = "1.10.0"
 CN.dbVersion   = 39
 
 -- Where the addon's own textures live. Referenced by the .toc IconTexture
@@ -606,11 +606,27 @@ end
 -- this right.
 CN.serverRequests = CN.serverRequests or {}
 
--- definition = { label, asked = function() end, answered = function() end }
+-- definition = { label, token, asked = function() end,
+--                answered = function() end }
 --
 -- `asked` must be false when the client offers no way to ask. That is the
 -- distinction the defect above turned on, so it is what the field is named
 -- for rather than being left to each caller's judgement.
+--
+-- `token` IS THE PLAYER-FACING HALF, AND IT IS SEPARATE ON PURPOSE. 1.10.0.
+--
+-- `label` was written for a diagnostic. Diagnostics are read by one person in
+-- English and the addon's own header says so; player-facing sentences go
+-- through the locale table, and every canonical key is linted for being both
+-- used and translated. 1.10.0 puts these words in front of every player, so
+-- promoting `label` would have moved three strings out of the locale system's
+-- reach without any lint noticing -- the exact shape `Modules/Inventory.lua`
+-- records and `Modules/Follow.lua` reproduced a release after citing it.
+--
+-- So the registration carries both: a label that may be a count and is read
+-- by `/cn selftest`, and a token that is a canonical locale key. A definition
+-- with no token is still valid -- the keystone is registered by nothing and a
+-- future system may be diagnostic-only -- but it is invisible to the notice.
 function CN.RegisterServerRequest(definition)
     local labelKind = type(type(definition) == "table" and definition.label)
 
@@ -619,6 +635,10 @@ function CN.RegisterServerRequest(definition)
         or type(definition.asked) ~= "function"
         or type(definition.answered) ~= "function" then
 
+        return false
+    end
+
+    if definition.token ~= nil and type(definition.token) ~= "string" then
         return false
     end
 
@@ -661,6 +681,60 @@ function CN.OutstandingServerRequests()
     end
 
     return outstanding
+end
+
+-- A FACT THE ADDON COMPUTES AND ONLY EVER SHOWS A DIAGNOSTIC IS A FACT THE
+-- PRODUCT IS NOT USING. 1.10.0.
+--
+-- 1.9.0 built the registry above because a self-test was reporting requests as
+-- unanswered that the client had never been able to send. It shipped with
+-- exactly one consumer: `Modules/SelfTest.lua`. So the addon knew, precisely,
+-- that the lockout list had not come back -- and the recommendation engine,
+-- which ranks instances by what you are saved to, went on answering "do this
+-- dungeon next" with a confident headline and a Why block, from data it could
+-- have said was incomplete.
+--
+-- The window where that matters is small and it is the window every session
+-- opens in: the seconds after a loading screen, which is when a player who
+-- has just logged in types `/cn` or glances at the heads-up line. The answer
+-- given there is not merely unstable -- it can be wrong. A dungeon you are
+-- already saved to is a real recommendation to a client whose lockout list
+-- has not arrived, and the addon silently changes its mind a second later.
+--
+-- Two sentences of restraint rather than a spinner: the answer is still shown,
+-- because an addon that shows nothing for four seconds after every loading
+-- screen is worse than one that shows a caveat. What changes is that it stops
+-- claiming more than it knows.
+--
+-- Returns nil when there is nothing outstanding, so every caller is one `if`.
+function CN.ProvisionalNotice()
+    local waiting = {}
+    local seen    = {}
+
+    for _, request in ipairs(CN.serverRequests) do
+        -- Tokens only. See `RegisterServerRequest`: `label` is the diagnostic
+        -- half and is not translated.
+        if type(request.token) == "string" and request.token ~= "" then
+            local askedOk, asked = pcall(request.asked)
+
+            if askedOk and asked then
+                local answeredOk, answered = pcall(request.answered)
+
+                if answeredOk and not answered and not seen[request.token] then
+                    seen[request.token] = true
+
+                    table.insert(waiting, CN.L[request.token])
+                end
+            end
+        end
+    end
+
+    if #waiting == 0 then
+        return nil
+    end
+
+    return string.format(CN.L["Still hearing back about %s; this may change."],
+        CN.Series(waiting))
 end
 
 -- AN EVENT THAT FIRES MANY TIMES A SECOND, ANSWERED ONCE.
@@ -7270,6 +7344,20 @@ CN.localeKeys = {
     -- list that repeats itself.
     "%d more",
     "Nothing is on a clock right now.",
+
+    -- 1.10.0. The addon has known since 1.9.0 which of its requests to the
+    -- server had not come back; until now it only told a self-test. These are
+    -- the words it says instead of presenting an answer built from data it
+    -- knows is incomplete.
+    --
+    -- The two nouns are TOKENS on the server-request registrations, not the
+    -- labels beside them. Not every registration has one: quest titles are
+    -- registered, are reported by `/cn selftest`, and are deliberately absent
+    -- here, because an outstanding title changes what a row is called and not
+    -- which row is on top.
+    "Still hearing back about %s; this may change.",
+    "your lockouts",
+    "your mailbox",
 }
 
 -- REACHED THROUGH A VARIABLE, NOT A LITERAL.
@@ -7291,6 +7379,13 @@ CN.localeDynamic = {
     -- translated. "solo" is also looked up literally in the same function.
     ["dead"] = "situation", ["grouped"] = "situation",
     ["instanced"] = "situation",
+
+    -- Core.lua: `CN.L[request.token]` in `CN.ProvisionalNotice`. A server
+    -- request names the noun the player reads; the registry is what makes a
+    -- fifth system a registration rather than a fifth place to get this
+    -- right, so the lookup has to be by variable. 1.10.0.
+    ["your lockouts"] = "server request",
+    ["your mailbox"] = "server request",
 }
 
 CN.RegisterLocale("enUS", {})
@@ -7345,6 +7440,12 @@ CN.RegisterLocale("deDE", {
     ["instanced"] = "in einer Instanz",
     ["%d more"] = "noch %d",
     ["Nothing is on a clock right now."] = "Nichts läuft gerade ab.",
+
+    -- 1.10.0. The words the addon says instead of presenting an answer
+    -- built from data it knows has not arrived yet.
+    ["Still hearing back about %s; this may change."] = "Warte noch auf %s; das kann sich noch ändern.",
+    ["your lockouts"] = "deine Instanz-Sperren",
+    ["your mailbox"] = "deine Post",
 })
 '@
 
@@ -7397,6 +7498,12 @@ CN.RegisterLocale("esES", {
     ["instanced"] = "en una instancia",
     ["%d more"] = "%d más",
     ["Nothing is on a clock right now."] = "Nada caduca ahora mismo.",
+
+    -- 1.10.0. The words the addon says instead of presenting an answer
+    -- built from data it knows has not arrived yet.
+    ["Still hearing back about %s; this may change."] = "Aún esperando %s; esto puede cambiar.",
+    ["your lockouts"] = "tus bloqueos de banda",
+    ["your mailbox"] = "tu correo",
 })
 '@
 
@@ -7449,6 +7556,12 @@ CN.RegisterLocale("esMX", {
     ["instanced"] = "en una instancia",
     ["%d more"] = "%d más",
     ["Nothing is on a clock right now."] = "Nada caduca ahora mismo.",
+
+    -- 1.10.0. The words the addon says instead of presenting an answer
+    -- built from data it knows has not arrived yet.
+    ["Still hearing back about %s; this may change."] = "Aún esperando %s; esto puede cambiar.",
+    ["your lockouts"] = "tus bloqueos de banda",
+    ["your mailbox"] = "tu correo",
 })
 '@
 
@@ -7501,6 +7614,12 @@ CN.RegisterLocale("frFR", {
     ["instanced"] = "en instance",
     ["%d more"] = "encore %d",
     ["Nothing is on a clock right now."] = "Rien n'expire pour le moment.",
+
+    -- 1.10.0. The words the addon says instead of presenting an answer
+    -- built from data it knows has not arrived yet.
+    ["Still hearing back about %s; this may change."] = "En attente de %s ; cela peut encore changer.",
+    ["your lockouts"] = "vos sauvegardes d'instance",
+    ["your mailbox"] = "votre courrier",
 })
 '@
 
@@ -7553,6 +7672,12 @@ CN.RegisterLocale("itIT", {
     ["instanced"] = "in istanza",
     ["%d more"] = "altri %d",
     ["Nothing is on a clock right now."] = "Nulla sta scadendo al momento.",
+
+    -- 1.10.0. The words the addon says instead of presenting an answer
+    -- built from data it knows has not arrived yet.
+    ["Still hearing back about %s; this may change."] = "In attesa di %s; questo può cambiare.",
+    ["your lockouts"] = "i tuoi blocchi d'istanza",
+    ["your mailbox"] = "la tua posta",
 })
 '@
 
@@ -7597,6 +7722,12 @@ CN.RegisterLocale("koKR", {
     ["unknown"] = "알 수 없음",
     ["dead"] = "사망",
     ["grouped"] = "파티 중",
+
+    -- 1.10.0. The words the addon says instead of presenting an answer
+    -- built from data it knows has not arrived yet.
+    ["Still hearing back about %s; this may change."] = "%s 정보를 기다리는 중입니다. 결과가 바뀔 수 있습니다.",
+    ["your lockouts"] = "인스턴스 저장 정보",
+    ["your mailbox"] = "우편함",
 })
 '@
 
@@ -7649,6 +7780,12 @@ CN.RegisterLocale("ptBR", {
     ["instanced"] = "em uma instância",
     ["%d more"] = "mais %d",
     ["Nothing is on a clock right now."] = "Nada está expirando agora.",
+
+    -- 1.10.0. The words the addon says instead of presenting an answer
+    -- built from data it knows has not arrived yet.
+    ["Still hearing back about %s; this may change."] = "Ainda aguardando %s; isso pode mudar.",
+    ["your lockouts"] = "seus bloqueios de instância",
+    ["your mailbox"] = "sua correspondência",
 })
 '@
 
@@ -7694,6 +7831,12 @@ CN.RegisterLocale("ruRU", {
     ["dead"] = "мертв",
     ["grouped"] = "в группе",
     ["%d more"] = "ещё %d",
+
+    -- 1.10.0. The words the addon says instead of presenting an answer
+    -- built from data it knows has not arrived yet.
+    ["Still hearing back about %s; this may change."] = "Ещё жду ответ: %s; это может измениться.",
+    ["your lockouts"] = "ваши блокировки подземелий",
+    ["your mailbox"] = "вашу почту",
 })
 '@
 
@@ -7746,6 +7889,12 @@ CN.RegisterLocale("zhCN", {
     ["instanced"] = "副本中",
     ["%d more"] = "还差 %d",
     ["Nothing is on a clock right now."] = "目前没有计时的事项。",
+
+    -- 1.10.0. The words the addon says instead of presenting an answer
+    -- built from data it knows has not arrived yet.
+    ["Still hearing back about %s; this may change."] = "仍在等待%s的信息，结果可能会变化。",
+    ["your lockouts"] = "你的副本锁定",
+    ["your mailbox"] = "你的邮箱",
 })
 '@
 
@@ -7790,6 +7939,12 @@ CN.RegisterLocale("zhTW", {
     ["unknown"] = "未知",
     ["dead"] = "死亡",
     ["grouped"] = "組隊中",
+
+    -- 1.10.0. The words the addon says instead of presenting an answer
+    -- built from data it knows has not arrived yet.
+    ["Still hearing back about %s; this may change."] = "仍在等待%s的資訊，結果可能會變化。",
+    ["your lockouts"] = "你的副本鎖定",
+    ["your mailbox"] = "你的信箱",
 })
 '@
 
@@ -10556,6 +10711,16 @@ CN:RegisterCommand{
 
         if notice then
             CN.Print("|cffffc74f" .. notice .. "|r")
+        end
+
+        -- AND SAY SO WHEN THE ANSWER IS BUILT FROM DATA THAT HAS NOT ARRIVED.
+        -- 1.10.0. Same position and same reasoning as the line above: it
+        -- changes how to read what follows, so it goes before it. See
+        -- `CN.ProvisionalNotice`.
+        local provisional = CN.ProvisionalNotice()
+
+        if provisional then
+            CN.Print("|cffffc74f" .. provisional .. "|r")
         end
 
         -- One headline, its reasons indented under it. The whole block used
@@ -14387,7 +14552,18 @@ UI.RegisterTab{
 
         panel.title:SetText(tostring(best.name or best.id))
         panel.type:SetText(CN.TypeBadge(best.type))
-        panel.why:SetText("Why:\n"
+
+        -- THE CAVEAT GOES ABOVE THE REASONS, NOT AMONG THEM. 1.10.0.
+        --
+        -- The Why block is a list of things that are true about this
+        -- objective. "The lockout list has not come back" is not one of them;
+        -- it is a statement about the whole answer, including which objective
+        -- is at the top. Putting it in the list would make it read as a
+        -- reason to do this thing. See `CN.ProvisionalNotice`.
+        local provisional = CN.ProvisionalNotice()
+
+        panel.why:SetText((provisional and (provisional .. "\n\n") or "")
+            .. "Why:\n"
             .. table.concat(CN.ExplainRecommendation(best), "\n"))
 
         local entries = {}
@@ -24146,6 +24322,26 @@ CN.RegisterServerRequest{
 
         return CN.Count(outstanding, "quest title")
     end,
+
+    -- DELIBERATELY NO `token`, SO THIS IS NOT IN THE PLAYER-FACING NOTICE.
+    -- 1.10.0.
+    --
+    -- `CN.ProvisionalNotice` exists to say that the ANSWER may change. An
+    -- outstanding quest title changes what a row is CALLED; it does not
+    -- change which row is on top, because nothing in `Scoring.lua` ranks on a
+    -- name. The lockout list and the mailbox do change the ranking, which is
+    -- why they carry tokens and this does not.
+    --
+    -- The distinction also keeps the heads-up line still. Titles go
+    -- outstanding continuously during ordinary play -- that is what
+    -- `CN.burstInvalidationEvents` debounces QUEST_DATA_LOAD_RESULT for -- so
+    -- a glanceable frame that reported them would flip between a reason and a
+    -- caveat every few seconds, for a caveat that was not true of the answer.
+    -- The lockout list and the mailbox are asked once, at login, and settle.
+    --
+    -- Still registered, and still in `/cn selftest`: "have all my requests
+    -- come back" is a real question about the client, and that is the reader
+    -- the label's count was written for.
 
     -- Asking IS the pending entry: nothing goes into that table without a
     -- request having gone out beside it.
@@ -52710,6 +52906,7 @@ end)
 -- always wrong.
 CN.RegisterServerRequest{
     label    = "your mailbox",
+    token    = "your mailbox",
     asked    = function() return CN.Blizzard.AskedForMail() end,
     answered = function() return Waiting.inboxAnswered end,
 }
@@ -56240,6 +56437,7 @@ end)
 -- request at all was reported as waiting for its reply for ever.
 CN.RegisterServerRequest{
     label    = "the lockout list",
+    token    = "your lockouts",
     asked    = function() return CN.Blizzard.AskedForSavedInstances() end,
     answered = function() return Instances.answered end,
 }
@@ -61113,6 +61311,25 @@ function Hud.Refresh()
     -- happening. It is the wrong thing when the player is nine stops into a
     -- twelve-stop route, which is exactly when a glanceable frame earns its
     -- place on the screen.
+    -- AND WHEN THE ANSWER IS BUILT FROM DATA THAT HAS NOT ARRIVED, SAY THAT
+    -- INSTEAD OF A REASON. 1.10.0.
+    --
+    -- The first reason is the right thing on a glanceable line when the
+    -- addon is confident. In the seconds after a loading screen it is not:
+    -- the lockout list decides whether an instance is offered at all, and
+    -- this frame is exactly what a player who has just logged in looks at.
+    -- A reason for an answer that is about to change is worse than no reason.
+    --
+    -- Below the route counter, because a player nine stops into a route is
+    -- long past login, and route progress is the more useful of the two.
+    -- Only registrations that can change the ANSWER reach this; see
+    -- `Modules/Quests.lua` for the one that deliberately does not.
+    local provisional = CN.ProvisionalNotice()
+
+    if provisional then
+        detail = provisional
+    end
+
     local follow = CN:GetModule("Follow")
 
     if follow and follow.active and (follow.startedWith or 0) > 0 then
@@ -62121,7 +62338,7 @@ $Embedded['CompletionNavigator.toc'] = @'
 ## Title: Completion Navigator
 ## Notes: Intelligent completion planning, prioritization, and navigation.
 ## Author: Travis A. Bryan I
-## Version: 1.9.0
+## Version: 1.10.0
 ## SavedVariables: CompletionNavigatorDB
 ## OptionalDeps: TomTom, AllTheThings, BtWQuests, HandyNotes
 ## X-Category: Quests & Leveling
@@ -62376,6 +62593,57 @@ Completion Navigator is a product of Dam Beaver Studios, LLC.
 Authored by Travis A. Bryan I.
 
 ## [Unreleased]
+
+## [1.10.0]
+
+**The addon knew the answer might be wrong and told only its own self-test.**
+
+1.9.0 built a registry so every system that asks the server for something can
+say whether it asked and whether it was answered. It shipped with one reader:
+`/cn selftest`. So in the seconds after a loading screen the addon knew,
+precisely, that the lockout list had not come back — and the recommendation
+engine, which ranks instances by what you are saved to, went on printing a
+confident headline and a Why block from data it could have said was
+incomplete. A dungeon you are already saved to is a real recommendation to a
+client whose lockouts have not arrived, and the addon silently changed its
+mind a second later.
+
+### Added
+
+- **The answer says when it is provisional.** `/cn next`, the heads-up line
+  and the main window now carry one sentence while a request the ranking
+  depends on is outstanding: "Still hearing back about your lockouts and your
+  mailbox; this may change." The answer is still shown — an addon that shows
+  nothing for four seconds after every loading screen is worse than one that
+  shows a caveat — it just stops claiming more than it knows. In chat and in
+  the window the line goes ABOVE the answer, in the position the group notice
+  already uses, because it changes how to read what follows; in the Why block
+  it sits above the reasons rather than among them, since "the lockout list
+  has not come back" is a statement about the whole answer and not a reason to
+  do this particular thing.
+
+- **A server request carries a player-facing token as well as a diagnostic
+  label.** The labels were written for one reader in English; reusing them
+  would have put untranslated nouns inside a translated sentence, and nothing
+  would have complained, because `CN.L` falls back to English by design and
+  the canonical-key lint only sees keys that exist. The registration now
+  carries both, the two nouns are canonical keys translated into all ten
+  shipped locales, and the suite asserts that every token on every
+  registration is a key the addon actually declares.
+
+- **Quest titles are deliberately not in the notice.** An outstanding title
+  changes what a row is called; nothing in the ranking reads a name. Including
+  them would also have made the heads-up line flip between a reason and a
+  caveat every few seconds during ordinary play — titles go outstanding
+  continuously, which is what `CN.burstInvalidationEvents` debounces
+  `QUEST_DATA_LOAD_RESULT` for — for a caveat that was not true of the answer.
+  They stay registered and stay in `/cn selftest`, which is the reader their
+  count was written for.
+
+- **The notice asks both halves of the pair.** A client that offers no way to
+  send the request produces no notice, the same distinction 1.9.0 was built
+  around. This is the second cross-cutting reader of that pair, which is
+  exactly where the first one got it wrong, so the suite checks it here too.
 
 ## [1.9.0]
 
@@ -70420,6 +70688,18 @@ Every list can be sorted A to Z or reversed, and sorting reads the words rather 
 
 A row that does something carries a marker, not just a slightly brighter grey — colour alone is not an explanation, and it is no explanation at all to the one player in twelve who cannot see the difference. A button that cannot act is drawn as unavailable rather than left looking live. A checkbox's words are part of what you can hover, not just the box. And a search that matches nothing says so, instead of falling back to the message about never having scanned.
 
+## When the answer is not settled yet
+
+Some of what the ranking depends on has to be asked for. Your raid and dungeon lockouts and your mailbox are not sitting in the client at login — the addon sends a request and the server answers a moment later, and until it does, "you are saved to nothing" and "the answer has not arrived" look identical.
+
+In those first seconds the addon says which it is:
+
+> Still hearing back about your lockouts and your mailbox; this may change.
+
+It still gives you the answer. An addon that shows nothing for four seconds after every loading screen is worse than one that tells you what it is still waiting on. The line appears in chat, on the heads-up display and in the window, and it goes away by itself when the replies land.
+
+It appears only for the things that can change *which* objective is on top. A quest name the client is still fetching changes what a row is called, not where it ranks, so it is not treated as a reason to doubt the answer — `/cn selftest` still reports it.
+
 ## When something goes wrong
 
 ```
@@ -70591,7 +70871,7 @@ it ends up inside a web form that cannot be diffed.
 '@
 
 $Embedded['_curseforge\REVIEWED.txt'] = @'
-1.9.0
+1.10.0
 '@
 
 $Embedded['.github\workflows\release.yml'] = @'
@@ -76378,6 +76658,74 @@ mutate "Modules/Instances.lua" \
     CN.Blizzard.ForgetSavedInstanceRequest()" \
     "    CN.Blizzard.ForgetSavedInstanceRequest()" \
     "a loading screen keeps the previous segment's lockout answer"
+
+mutate "Core.lua" \
+    "        if type(request.token) == \"string\" and request.token ~= \"\" then
+            local askedOk, asked = pcall(request.asked)
+
+            if askedOk and asked then" \
+    "        if type(request.token) == \"string\" and request.token ~= \"\" then
+            local askedOk, asked = pcall(request.asked)
+
+            if askedOk then" \
+    "the notice tells a client that cannot ask that it is waiting for a reply"
+
+mutate "Core.lua" \
+    "                if answeredOk and not answered and not seen[request.token] then" \
+    "                if answeredOk and not seen[request.token] then" \
+    "a system that answered is still caveated in the player-facing notice"
+
+mutate "Core.lua" \
+    "        if type(request.token) == \"string\" and request.token ~= \"\" then" \
+    "        if true then" \
+    "a request registered without a player-facing token is put in front of the player"
+
+mutate "Core.lua" \
+    "    if definition.token ~= nil and type(definition.token) ~= \"string\" then
+        return false
+    end" \
+    "    if false then
+        return false
+    end" \
+    "a token that is not a string is stored and thrown on at read time"
+
+mutate "Modules/Instances.lua" \
+    "    token    = \"your lockouts\"," \
+    "" \
+    "the lockout list drops out of the notice the player reads"
+
+mutate "Modules/Quests.lua" \
+    "    -- outstanding quest title changes what a row is CALLED; it does not" \
+    "    token    = \"your mailbox\",
+    -- outstanding quest title changes what a row is CALLED; it does not" \
+    "a quest title outstanding is reported as a caveat on the answer"
+
+mutate "Scoring.lua" \
+    "        local provisional = CN.ProvisionalNotice()
+
+        if provisional then
+            CN.Print(\"|cffffc74f\" .. provisional .. \"|r\")
+        end" \
+    "        local provisional = nil
+
+        if provisional then
+            CN.Print(\"|cffffc74f\" .. provisional .. \"|r\")
+        end" \
+    "/cn next presents an incomplete answer without saying so"
+
+mutate "Modules/Hud.lua" \
+    "    if provisional then
+        detail = provisional
+    end" \
+    "    if false then
+        detail = provisional
+    end" \
+    "the heads-up line gives a reason for an answer that is about to change"
+
+mutate "UI.lua" \
+    "        panel.why:SetText((provisional and (provisional .. \"\\n\\n\") or \"\")" \
+    "        panel.why:SetText((false and (provisional .. \"\\n\\n\") or \"\")" \
+    "the window's Why block claims more than the addon knows"
 
 mutate "Scoring.lua" \
     "            .. CN.Accent(\"/cn clock\") .. \" for what is on a timer.\")" \
@@ -120063,6 +120411,316 @@ end)()
     end
 
     print("  the addon says which answers it is still waiting for")
+end)()
+
+------------------------------------------------------------
+-- AND IT SAYS IT TO THE PLAYER, NOT ONLY TO A SELF-TEST. 1.10.0.
+------------------------------------------------------------
+-- 1.9.0's registry shipped with one consumer: `Modules/SelfTest.lua`. So the
+-- addon knew precisely that the lockout list had not come back, and the
+-- recommendation engine -- which ranks instances by what you are saved to --
+-- went on printing a confident headline and a Why block from data it could
+-- have said was incomplete. A fact the addon computes and only ever shows a
+-- diagnostic is a fact the product is not using.
+;(function()
+    local instances = CN:GetModule("Instances")
+    local waiting   = CN:GetModule("Waiting")
+
+    -- A CLEAN SLATE FIRST. Everything answered means no notice at all, which
+    -- is the state the addon is in for all but the first seconds of a
+    -- session, and a caveat that were always on screen would be furniture.
+    CN.Blizzard.ForgetSavedInstanceRequest()
+    CN.Blizzard.ForgetMailRequest()
+
+    instances.answered    = true
+    waiting.inboxAnswered = true
+
+    CN.pendingQuestLoads = {}
+
+    assert(CN.ProvisionalNotice() == nil,
+        "an addon with nothing outstanding says nothing")
+
+    -- ASKED AND UNANSWERED: the notice names the system in words a player
+    -- reads, which are the TOKEN and not the self-test's label.
+    CN.Blizzard.RequestSavedInstances()
+
+    instances.answered = false
+
+    local notice = CN.ProvisionalNotice()
+
+    assert(type(notice) == "string" and notice ~= "",
+        "an outstanding request the player's answer depends on is said out "
+        .. "loud")
+
+    assert(notice:find("your lockouts", 1, true),
+        "in the player-facing token: " .. tostring(notice))
+
+    assert(not notice:find("the lockout list", 1, true),
+        "and not in the self-test's label, which is not translated: "
+        .. tostring(notice))
+
+    -- AND THE SELF-TEST STILL READS THE LABEL, so promoting one reader's
+    -- words to the other's is what this separation prevents.
+    local selfTest = CN:GetModule("SelfTest")
+
+    local outstanding = selfTest.Outstanding()
+
+    assert(#outstanding == 1 and outstanding[1] == "the lockout list",
+        "and the diagnostic still reads its own: "
+        .. table.concat(outstanding, ", "))
+
+    -- A CLIENT THAT CANNOT BE ASKED IS NOT WAITING, HERE TOO. This is the
+    -- 1.9.0 defect, and the notice is a second cross-cutting reader of the
+    -- same pair -- exactly the place it was got wrong the first time.
+    local heldRaid = RequestRaidInfo
+
+    CN.Blizzard.ForgetSavedInstanceRequest()
+
+    RequestRaidInfo = nil
+
+    CN.Blizzard.RequestSavedInstances()
+
+    local unaskable = CN.ProvisionalNotice()
+
+    RequestRaidInfo = heldRaid
+
+    assert(unaskable == nil,
+        "a client that cannot be asked produces no notice: "
+        .. tostring(unaskable))
+
+    -- TWO SYSTEMS OUTSTANDING READ AS ONE SENTENCE, not two lines and not a
+    -- comma-spliced fragment. `CN.Series` is what every other list in this
+    -- addon goes through.
+    CN.Blizzard.ForgetSavedInstanceRequest()
+    CN.Blizzard.ForgetMailRequest()
+
+    instances.answered    = false
+    waiting.inboxAnswered = false
+
+    CN.Blizzard.RequestSavedInstances()
+    CN.Blizzard.RequestMail()
+
+    local both = CN.ProvisionalNotice()
+
+    assert(both and both:find("your lockouts", 1, true)
+        and both:find("your mailbox", 1, true),
+        "both outstanding systems are named: " .. tostring(both))
+
+    assert(both:find(" and ", 1, true),
+        "joined the way every other list in this addon is joined: " .. both)
+
+    -- QUEST TITLES ARE DELIBERATELY NOT IN IT. An outstanding title changes
+    -- what a row is CALLED; nothing in the ranking reads a name. Including
+    -- them would also make the heads-up line flip between a reason and a
+    -- caveat every few seconds during ordinary play, for a caveat that was
+    -- not true of the answer.
+    instances.answered    = true
+    waiting.inboxAnswered = true
+
+    CN.pendingQuestLoads = { [12345] = true }
+
+    assert(CN.ProvisionalNotice() == nil,
+        "an outstanding quest title is not a caveat on the answer")
+
+    -- AND IT IS STILL A SERVER REQUEST, so `/cn selftest` still reports it.
+    -- Registered without a token, which the registry accepts on purpose.
+    local titlesOnly = selfTest.Outstanding()
+
+    assert(#titlesOnly == 1 and titlesOnly[1]:find("quest title", 1, true),
+        "and the self-test still reports it: "
+        .. table.concat(titlesOnly, ", "))
+
+    CN.pendingQuestLoads = {}
+
+    -- EVERY TOKEN IS A CANONICAL LOCALE KEY. This is the mechanical half: a
+    -- future registration whose token is a bare English string would print
+    -- an untranslated noun inside a translated sentence, which is the defect
+    -- `Modules/Inventory.lua` records and `Modules/Follow.lua` reproduced one
+    -- release after citing it. Nothing about `CN.L` would complain -- it
+    -- falls back to English by design -- so the check has to be here.
+    local canonical = {}
+
+    for _, key in ipairs(CN.localeKeys or {}) do
+        canonical[key] = true
+    end
+
+    local tokens = 0
+
+    for _, request in ipairs(CN.serverRequests) do
+        if request.token ~= nil then
+            assert(type(request.token) == "string" and canonical[request.token],
+                "a server request's token must be a canonical locale key: "
+                .. tostring(request.token))
+
+            tokens = tokens + 1
+        end
+    end
+
+    assert(tokens >= 2,
+        "and the systems the answer depends on carry one: " .. tokens)
+
+    -- A REGISTRATION WITH A NON-STRING TOKEN IS REFUSED, rather than stored
+    -- and thrown on at the moment a player is reading the screen.
+    local held = #CN.serverRequests
+
+    assert(CN.RegisterServerRequest{
+        label    = "nonsense",
+        token    = 7,
+        asked    = function() return true end,
+        answered = function() return false end,
+    } == false, "a token that is not a string is refused")
+
+    assert(#CN.serverRequests == held,
+        "and nothing was stored")
+
+    print("  an answer built from data that has not arrived says so")
+end)()
+
+------------------------------------------------------------
+-- AND EVERY SURFACE THAT PRESENTS AN ANSWER CARRIES IT. 1.10.0.
+------------------------------------------------------------
+-- The block above proves `CN.ProvisionalNotice` is correct. Correct and
+-- unread is precisely the state 1.9.0's registry shipped in, which is what
+-- rule 186 is about, and a mutation run said so out loud: removing the call
+-- from `/cn next`, from the heads-up line and from the window's Why block
+-- left every assertion in this file passing.
+--
+-- Rule 30 is that a fix landing at one call site is not finished. Its test
+-- form is that a fact is not delivered until each place that shows the answer
+-- is asserted to show it, by name, one assertion each.
+;(function()
+    local instances = CN:GetModule("Instances")
+    local waiting   = CN:GetModule("Waiting")
+    local hud       = CN:GetModule("Hud")
+
+    local function Outstanding()
+        CN.Blizzard.ForgetSavedInstanceRequest()
+        CN.Blizzard.ForgetMailRequest()
+
+        instances.answered    = false
+        waiting.inboxAnswered = true
+
+        CN.Blizzard.RequestSavedInstances()
+
+        assert(CN.ProvisionalNotice(), "the fixture is in the waiting state")
+    end
+
+    local function Settled()
+        CN.Blizzard.ForgetSavedInstanceRequest()
+        CN.Blizzard.ForgetMailRequest()
+
+        instances.answered    = true
+        waiting.inboxAnswered = true
+
+        assert(CN.ProvisionalNotice() == nil, "and back out of it")
+    end
+
+    ------------------------------------------------------------
+    -- 1. CHAT.
+    ------------------------------------------------------------
+    local function NextSays()
+        local printed = {}
+
+        local realAdd = DEFAULT_CHAT_FRAME.AddMessage
+
+        DEFAULT_CHAT_FRAME.AddMessage = function(chatFrame, message)
+            table.insert(printed, tostring(message))
+
+            return realAdd(chatFrame, message)
+        end
+
+        SlashCmdList.COMPLETIONNAVIGATOR("next")
+
+        DEFAULT_CHAT_FRAME.AddMessage = realAdd
+
+        for _, line in ipairs(printed) do
+            if line:find("this may change", 1, true) then
+                return true
+            end
+        end
+
+        return false
+    end
+
+    Outstanding()
+
+    assert(NextSays(), "`/cn next` says the answer may still change")
+
+    Settled()
+
+    assert(not NextSays(),
+        "and says nothing of the kind once the replies have landed -- a "
+        .. "caveat that is always on screen is furniture")
+
+    ------------------------------------------------------------
+    -- 2. THE HEADS-UP LINE.
+    ------------------------------------------------------------
+    -- Glanceable, five-second ticker, and the frame a player who has just
+    -- logged in is most likely to be looking at.
+    hud.SetEnabled(true)
+
+    Outstanding()
+
+    assert(hud.Refresh(), "the heads-up line refreshes")
+
+    local hudFrame = hud.Build()
+
+    assert(hudFrame and hudFrame.detail,
+        "and has a detail line to write to")
+
+    assert(tostring(hudFrame.detail.text or ""):find("this may change", 1, true),
+        "which carries the caveat instead of a reason for an answer that is "
+        .. "about to change: " .. tostring(hudFrame.detail.text))
+
+    Settled()
+
+    hud.Refresh()
+
+    assert(not tostring(hudFrame.detail.text or ""):find("this may change", 1, true),
+        "and goes back to the reason once the replies have landed: "
+        .. tostring(hudFrame.detail.text))
+
+    hud.SetEnabled(false)
+
+    ------------------------------------------------------------
+    -- 3. THE WINDOW.
+    ------------------------------------------------------------
+    -- ABOVE THE REASONS, NOT AMONG THEM. The Why block is a list of things
+    -- true about this objective; "the lockout list has not come back" is a
+    -- statement about the whole answer, including which objective is at the
+    -- top, and among the reasons it would read as a reason to do this thing.
+    CN.UI.Show()
+
+    Outstanding()
+
+    CN.UI.RefreshAllTabs()
+
+    local panel
+
+    for _, tab in ipairs(CN.UI.tabs) do
+        if tab.name == "Next" then panel = tab.panel end
+    end
+
+    assert(panel and panel.why, "the window has a Why block")
+
+    local why = tostring(panel.why.text or "")
+
+    assert(why:find("this may change", 1, true),
+        "which carries the caveat: " .. why)
+
+    assert(why:find("this may change", 1, true) < (why:find("Why:", 1, true) or math.huge),
+        "above the reasons rather than among them: " .. why)
+
+    Settled()
+
+    CN.UI.RefreshAllTabs()
+
+    assert(not tostring(panel.why.text or ""):find("this may change", 1, true),
+        "and drops it once the replies have landed")
+
+    CN.UI.Hide()
+
+    print("  every surface that presents the answer presents the caveat")
 end)()
 
 print("\nALL HARNESS CHECKS PASSED")

@@ -46,4 +46,10 @@ CN.RegisterLocale("itIT", {
     ["instanced"] = "in istanza",
     ["%d more"] = "altri %d",
     ["Nothing is on a clock right now."] = "Nulla sta scadendo al momento.",
+
+    -- 1.10.0. The words the addon says instead of presenting an answer
+    -- built from data it knows has not arrived yet.
+    ["Still hearing back about %s; this may change."] = "In attesa di %s; questo puÃ² cambiare.",
+    ["your lockouts"] = "i tuoi blocchi d'istanza",
+    ["your mailbox"] = "la tua posta",
 })
