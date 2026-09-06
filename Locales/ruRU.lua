@@ -46,4 +46,10 @@ CN.RegisterLocale("ruRU", {
     ["instanced"] = "в подземелье/рейде",
     ["%d more"] = "еще %d",
     ["Nothing is on a clock right now."] = "В данный момент нет активных таймеров.",
+    
+    -- 1.10.0. The words the addon says instead of presenting an answer
+    -- built from data it knows has not arrived yet.
+    ["Still hearing back about %s; this may change."] = "Всё ещё ожидаем данные о: %s; ситуация может измениться.",
+    ["your lockouts"] = "ваших сохранениях подземелий",
+    ["your mailbox"] = "вашем почтовом ящике",
 })
