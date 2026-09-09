@@ -52,4 +52,5 @@ CN.RegisterLocale("esMX", {
     ["Still hearing back about %s; this may change."] = "AÃºn esperando %s; esto puede cambiar.",
     ["your lockouts"] = "tus bloqueos de banda",
     ["your mailbox"] = "tu correo",
+    ["The replies landed: %s rather than %s."] = "Llegaron las respuestas: %s en lugar de %s.",
 })

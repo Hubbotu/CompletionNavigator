@@ -2770,6 +2770,43 @@ CN:RegisterCommand{
 
         if provisional then
             CN.Print("|cffffc74f" .. provisional .. "|r")
+
+            -- AND SAY WHETHER IT CAME TO ANYTHING. 1.11.0.
+            --
+            -- The window and the heads-up line redraw and so correct
+            -- themselves. A printed line cannot, so a player who read this
+            -- caveat had no way to learn whether the answer under it had
+            -- survived. A caveat with no resolution makes every answer
+            -- suspect and never says which ones were.
+            --
+            -- QUIET. `CN.Recommend(n, true)` on purpose: this is a
+            -- comparison, not an offer, and the loud form counts every row as
+            -- shown to the player and starts a work clock on the top ones.
+            -- 0.67.0 poisoned both by counting asks as offers, which is the
+            -- whole reason the parameter exists.
+            local was = objective
+
+            CN.WhenServerRequestsSettle(20, function()
+                local now = CN.Recommend(1, true)[1]
+
+                if not now or now == was then
+                    return
+                end
+
+                -- Identity, then id: a rebuild produces new tables for the
+                -- same objective, so comparing the tables alone would report
+                -- a change on every settle.
+                if now.type == was.type and now.id == was.id then
+                    return
+                end
+
+                CN.Print("|cffffc74f" .. string.format(
+                    CN.L["The replies landed: %s rather than %s."],
+                    CN.Primary(tostring(now.name or now.id)),
+                    tostring(was.name or was.id)) .. "|r")
+
+                CN.currentRecommendation = now
+            end)
         end
 
         -- One headline, its reasons indented under it. The whole block used

@@ -18,7 +18,7 @@ local ADDON_NAME, CN = ...
 _G.CompletionNavigator = CN
 
 CN.name        = ADDON_NAME
-CN.version     = "1.10.0"
+CN.version     = "1.11.0"
 CN.dbVersion   = 39
 
 -- Where the addon's own textures live. Referenced by the .toc IconTexture
@@ -632,6 +632,84 @@ function CN.ProvisionalNotice()
 
     return string.format(CN.L["Still hearing back about %s; this may change."],
         CN.Series(waiting))
+end
+
+-- AND SOMETHING HAS TO NOTICE WHEN THEY LAND. 1.11.0.
+--
+-- 1.10.0 stopped the addon claiming more than it knew, and stopped there. The
+-- window and the heads-up line redraw themselves, so they correct silently
+-- and that is right. Chat cannot: a player who ran `/cn next` in the first
+-- seconds of a session read "Next: X" with "this may change" under it, the
+-- lockout list arrived, the top of the list became Y -- and the last thing
+-- the addon had said to them was still X, with no way to tell whether the
+-- caveat had come to anything. A caveat with no resolution is worse than no
+-- caveat: it makes every answer suspect and never says which ones were.
+--
+-- This is the settle half, and it is registry plumbing rather than gameplay
+-- -- Core's header says this file holds none, and it still does not. What is
+-- here is "tell me when the requests are answered"; what to do about it
+-- belongs to the caller.
+--
+-- A POLL, NOT A SUBSCRIPTION, and deliberately. The alternative is a handler
+-- on UPDATE_INSTANCE_INFO and another on MAIL_INBOX_UPDATE, which is a third
+-- place that has to know which systems exist -- rule 185, and the reason the
+-- registry was built. This asks the registry the same question the notice
+-- asks, once a second, and only while an answer is outstanding: a handful of
+-- ticks in the seconds after a loading screen and none at all thereafter.
+--
+-- `timeout` is not optional. A request that never comes back must not leave a
+-- timer running for the session, and a correction that arrives a minute later
+-- is a correction to a sentence the player has long scrolled past.
+function CN.WhenServerRequestsSettle(timeout, work)
+    if type(work) ~= "function" then
+        return false
+    end
+
+    timeout = tonumber(timeout) or 20
+
+    if not (C_Timer and C_Timer.After) then
+        return false
+    end
+
+    -- ONE WATCH AT A TIME. A second call supersedes the first rather than
+    -- running beside it, because two watches would answer one question twice.
+    CN.settleWatch = (CN.settleWatch or 0) + 1
+
+    local mine = CN.settleWatch
+
+    local waited = 0
+
+    local function Tick()
+        if CN.settleWatch ~= mine then
+            return
+        end
+
+        if not CN.ProvisionalNotice() then
+            CN.settleWatch = nil
+
+            if CN.Guard then
+                CN.Guard("ServerRequestsSettled", work)
+            else
+                pcall(work)
+            end
+
+            return
+        end
+
+        waited = waited + 1
+
+        if waited >= timeout then
+            CN.settleWatch = nil
+
+            return
+        end
+
+        C_Timer.After(1, Tick)
+    end
+
+    C_Timer.After(1, Tick)
+
+    return true
 end
 
 -- AN EVENT THAT FIRES MANY TIMES A SECOND, ANSWERED ONCE.

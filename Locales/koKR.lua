@@ -44,4 +44,5 @@ CN.RegisterLocale("koKR", {
     ["Still hearing back about %s; this may change."] = "%s ì •ë³´ë¥¼ ê¸°ë‹¤ë¦¬ëŠ” ì¤‘ìž…ë‹ˆë‹¤. ê²°ê³¼ê°€ ë°”ë€” ìˆ˜ ìžˆìŠµë‹ˆë‹¤.",
     ["your lockouts"] = "ì¸ìŠ¤í„´ìŠ¤ ì €ìž¥ ì •ë³´",
     ["your mailbox"] = "ìš°íŽ¸í•¨",
+    ["The replies landed: %s rather than %s."] = "ì •ë³´ê°€ ë„ì°©í–ˆìŠµë‹ˆë‹¤: %s(ìœ¼)ë¡œ ë³€ê²½ë˜ì—ˆìŠµë‹ˆë‹¤ (ì´ì „: %s).",
 })

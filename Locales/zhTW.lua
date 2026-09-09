@@ -44,4 +44,5 @@ CN.RegisterLocale("zhTW", {
     ["Still hearing back about %s; this may change."] = "ä»åœ¨ç­‰å¾…%sçš„è³‡è¨Šï¼Œçµæžœå¯èƒ½æœƒè®ŠåŒ–ã€‚",
     ["your lockouts"] = "ä½ çš„å‰¯æœ¬éŽ–å®š",
     ["your mailbox"] = "ä½ çš„ä¿¡ç®±",
+    ["The replies landed: %s rather than %s."] = "è³‡è¨Šå·²é€é”ï¼šæ”¹ç‚º%sï¼Œè€Œéž%sã€‚",
 })

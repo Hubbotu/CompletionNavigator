@@ -7,6 +7,52 @@ Authored by Travis A. Bryan I.
 
 ## [Unreleased]
 
+## [1.11.0]
+
+**A caveat with no resolution makes every answer suspect and never says which
+ones were.**
+
+1.10.0 stopped the addon claiming more than it knew, and stopped there. The
+window and the heads-up line redraw themselves, so they correct silently and
+that is right. Chat cannot. A player who ran `/cn next` in the first seconds
+of a session read "Next: X" with "this may change" under it, the lockout list
+arrived, the top of the list became Y â€” and the last thing the addon had said
+to them was still X, with no way to tell whether the caveat had come to
+anything.
+
+### Added
+
+- **The caveat is resolved.** When `/cn next` prints a provisional answer, the
+  addon watches until the outstanding requests are answered and says one line
+  if the answer changed: "The replies landed: Y rather than X." If the answer
+  held â€” the common case, and it has to stay silent â€” nothing is printed, and
+  `/cn go` after a correction goes to the answer on screen rather than the one
+  it replaced. A request that never comes back gives up after twenty seconds
+  rather than watching for the session, because a correction that arrives a
+  minute later corrects a sentence the player scrolled past long ago.
+
+- **The comparison is made quietly.** `CN.Recommend(1, true)`, on purpose:
+  this is a comparison, not an offer. The loud form counts every row as shown
+  to the player and starts a work clock on the top ones, which is what 0.67.0
+  poisoned by counting asks as offers, and the whole reason that parameter
+  exists.
+
+- **The settle detection is a poll, and deliberately.** The alternative is a
+  handler on `UPDATE_INSTANCE_INFO` and another on `MAIL_INBOX_UPDATE`, which
+  is a third place that has to know which systems exist â€” the thing the
+  registry was built to stop. It asks the registry the same question the
+  notice asks, once a second, and only while an answer is outstanding: a
+  handful of ticks after a loading screen and none at all thereafter.
+
+- **The files that present the caveat are declared and checked in both
+  directions.** 1.10.0's real hole was not in the function â€” removing the call
+  from all three surfaces left every assertion in the suite passing. The three
+  were then asserted by hand, which covers the three that exist and does
+  nothing about the fourth. The suite now scans the source for consumers of
+  the notice and compares that set against a declared list, so a new surface
+  fails until it is listed and a listed file that stopped consulting it fails
+  too.
+
 ## [1.10.0]
 
 **The addon knew the answer might be wrong and told only its own self-test.**

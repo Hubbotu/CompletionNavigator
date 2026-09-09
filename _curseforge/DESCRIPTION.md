@@ -358,6 +358,12 @@ In those first seconds the addon says which it is:
 
 It still gives you the answer. An addon that shows nothing for four seconds after every loading screen is worse than one that tells you what it is still waiting on. The line appears in chat, on the heads-up display and in the window, and it goes away by itself when the replies land.
 
+And when the replies land, it tells you whether the caveat came to anything:
+
+> The replies landed: Nerub-ar Palace rather than Ara-Kara, City of Echoes
+
+Only if the answer actually changed. Most of the time the replies confirm what the addon already assumed, and a line saying so on every login would be the caveat's noise with none of its information. The window and the heads-up display redraw and so correct themselves; a line already printed in chat cannot, which is the only reason this exists.
+
 It appears only for the things that can change *which* objective is on top. A quest name the client is still fetching changes what a row is called, not where it ranks, so it is not treated as a reason to doubt the answer â€” `/cn selftest` still reports it.
 
 ## When something goes wrong

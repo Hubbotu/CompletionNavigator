@@ -43761,4 +43761,376 @@ end)()
     print("  every surface that presents the answer presents the caveat")
 end)()
 
+------------------------------------------------------------
+-- AND THE CAVEAT IS RESOLVED, NOT LEFT HANGING. 1.11.0.
+------------------------------------------------------------
+-- The window and the heads-up line redraw and so correct themselves. Chat
+-- cannot: a player who read "Next: X" with "this may change" under it had no
+-- way to learn whether the answer survived the replies landing. A caveat with
+-- no resolution makes every answer suspect and never says which ones were.
+;(function()
+    local instances = CN:GetModule("Instances")
+    local waiting   = CN:GetModule("Waiting")
+
+    local function Printed(work)
+        local lines = {}
+
+        local realAdd = DEFAULT_CHAT_FRAME.AddMessage
+
+        DEFAULT_CHAT_FRAME.AddMessage = function(chatFrame, message)
+            table.insert(lines, tostring(message))
+
+            return realAdd(chatFrame, message)
+        end
+
+        work()
+
+        DEFAULT_CHAT_FRAME.AddMessage = realAdd
+
+        return lines
+    end
+
+    local function Said(lines, text)
+        for _, line in ipairs(lines) do
+            if line:find(text, 1, true) then
+                return true
+            end
+        end
+
+        return false
+    end
+
+    ------------------------------------------------------------
+    -- NOTHING OUTSTANDING, NOTHING WATCHED.
+    ------------------------------------------------------------
+    -- A watcher started for every answer would be a timer running for the
+    -- whole session, for a question already answered.
+    CN.Blizzard.ForgetSavedInstanceRequest()
+    CN.Blizzard.ForgetMailRequest()
+
+    instances.answered    = true
+    waiting.inboxAnswered = true
+
+    CN.settleWatch = nil
+
+    CN_TEST_DrainDeferred()
+
+    Printed(function() SlashCmdList.COMPLETIONNAVIGATOR("next") end)
+
+    assert(CN.settleWatch == nil,
+        "a settled answer starts no watch")
+
+    ------------------------------------------------------------
+    -- OUTSTANDING, THEN THE REPLY LANDS AND THE ANSWER HOLDS.
+    ------------------------------------------------------------
+    -- SILENCE IS THE COMMON CASE and it has to stay silent. Most of the time
+    -- the lockout list confirms what the addon already assumed, and a line
+    -- saying so on every login would be the caveat's noise with none of its
+    -- information.
+    CN.Blizzard.ForgetSavedInstanceRequest()
+
+    instances.answered = false
+
+    CN.Blizzard.RequestSavedInstances()
+
+    local first = Printed(function()
+        SlashCmdList.COMPLETIONNAVIGATOR("next")
+    end)
+
+    assert(Said(first, "this may change"), "the caveat was printed")
+
+    assert(CN.settleWatch, "and a watch was started for it")
+
+    local held = CN.currentRecommendation
+
+    instances.answered = true
+
+    local quiet = Printed(function() CN_TEST_DrainDeferred() end)
+
+    assert(not Said(quiet, "rather than"),
+        "an answer the replies did not change is not announced")
+
+    assert(CN.settleWatch == nil, "and the watch is over")
+
+    ------------------------------------------------------------
+    -- OUTSTANDING, AND THE ANSWER CHANGES.
+    ------------------------------------------------------------
+    CN.Blizzard.ForgetSavedInstanceRequest()
+
+    instances.answered = false
+
+    CN.Blizzard.RequestSavedInstances()
+
+    Printed(function() SlashCmdList.COMPLETIONNAVIGATOR("next") end)
+
+    assert(CN.settleWatch, "a second watch was started")
+
+    -- The recorded answer is replaced by something that outranks everything,
+    -- which is what a lockout list arriving does: it removes an instance the
+    -- player is saved to and something else reaches the top.
+    local hijacked = {
+        type = "quest", id = 999001, name = "A Reply That Changed The Answer",
+        score = 1e9,
+    }
+
+    local realRecommend = CN.Recommend
+
+    CN.Recommend = function()
+        return { hijacked }
+    end
+
+    instances.answered = true
+
+    local changed = Printed(function() CN_TEST_DrainDeferred() end)
+
+    CN.Recommend = realRecommend
+
+    assert(Said(changed, "A Reply That Changed The Answer"),
+        "the new answer is named")
+
+    assert(Said(changed, "rather than"),
+        "and so is the one it replaced, because a correction that names only "
+        .. "the new answer does not tell the player their sentence was wrong")
+
+    assert(CN.currentRecommendation == hijacked,
+        "and the command's target follows the correction, so `/cn go` after "
+        .. "it goes to the answer on screen rather than the one it replaced")
+
+    ------------------------------------------------------------
+    -- NOTHING IS SAID WHILE THE REQUESTS ARE STILL OUTSTANDING.
+    ------------------------------------------------------------
+    -- The watch settles on "everything asked for has been answered", and a
+    -- watch that settles on the first tick regardless would correct the
+    -- player from a ranking built on the same incomplete data the caveat was
+    -- about -- twice as wrong as saying nothing, and it would look like the
+    -- feature working.
+    CN.Blizzard.ForgetSavedInstanceRequest()
+
+    instances.answered = false
+
+    CN.Blizzard.RequestSavedInstances()
+
+    Printed(function() SlashCmdList.COMPLETIONNAVIGATOR("next") end)
+
+    local impatient = {
+        type = "quest", id = 999003, name = "Answered Too Early",
+        score = 1e9,
+    }
+
+    local beforeReplies = CN.Recommend
+
+    CN.Recommend = function() return { impatient } end
+
+    -- Drained WITHOUT answering. The requests are still outstanding for
+    -- every one of these ticks.
+    local early = Printed(function() CN_TEST_DrainDeferred() end)
+
+    CN.Recommend = beforeReplies
+
+    assert(not Said(early, "Answered Too Early"),
+        "no correction is made while the replies are still outstanding")
+
+    ------------------------------------------------------------
+    -- THE COMPARISON IS NOT AN OFFER.
+    ------------------------------------------------------------
+    -- `CN.Recommend(n, true)`. The loud form fires the recommendation hooks,
+    -- and two of the three WRITE: Preference counts each row as shown to the
+    -- player -- the denominator of a ratio that moves a type's score by up to
+    -- 25% -- and Session starts a work clock on the top rows. 0.67.0
+    -- poisoned both by counting asks as offers. A settle nobody watched is
+    -- the purest possible ask.
+    CN.Blizzard.ForgetSavedInstanceRequest()
+
+    instances.answered = false
+
+    CN.Blizzard.RequestSavedInstances()
+
+    Printed(function() SlashCmdList.COMPLETIONNAVIGATOR("next") end)
+
+    local offers = 0
+
+    CN.RegisterRecommendationHook("CN_TEST_settleOffers", function()
+        offers = offers + 1
+    end)
+
+    local offersBefore = offers
+
+    instances.answered = true
+
+    Printed(function() CN_TEST_DrainDeferred() end)
+
+    CN.recommendationHooks["CN_TEST_settleOffers"] = nil
+
+    assert(offers == offersBefore,
+        "the settle comparison offers nothing to anybody: " .. offers
+        .. " hook run(s) for a ranking the player never saw")
+
+    ------------------------------------------------------------
+    -- THE SAME OBJECTIVE, REBUILT, IS NOT A CHANGED ANSWER.
+    ------------------------------------------------------------
+    -- Every rebuild produces fresh tables, so comparing identity alone would
+    -- announce a correction on every settle -- "X rather than X", once per
+    -- login, for ever.
+    CN.Blizzard.ForgetSavedInstanceRequest()
+
+    instances.answered = false
+
+    CN.Blizzard.RequestSavedInstances()
+
+    Printed(function() SlashCmdList.COMPLETIONNAVIGATOR("next") end)
+
+    local printedAnswer = CN.currentRecommendation
+
+    assert(printedAnswer, "the command named an objective")
+
+    local rebuilt = {
+        type  = printedAnswer.type,
+        id    = printedAnswer.id,
+        name  = printedAnswer.name,
+        score = printedAnswer.score,
+    }
+
+    assert(rebuilt ~= printedAnswer, "and the rebuild is a different table")
+
+    local heldRebuild = CN.Recommend
+
+    CN.Recommend = function() return { rebuilt } end
+
+    instances.answered = true
+
+    local unchanged = Printed(function() CN_TEST_DrainDeferred() end)
+
+    CN.Recommend = heldRebuild
+
+    assert(not Said(unchanged, "rather than"),
+        "the same objective rebuilt is not announced as a changed answer")
+
+    ------------------------------------------------------------
+    -- A SECOND ASK SUPERSEDES THE FIRST.
+    ------------------------------------------------------------
+    -- Two watches would answer one question twice: two corrections in chat
+    -- for one answer, the second of them about a sentence two lines further
+    -- up. The player asked again; the older watch is not theirs any more.
+    CN.Blizzard.ForgetSavedInstanceRequest()
+
+    instances.answered = false
+
+    CN.Blizzard.RequestSavedInstances()
+
+    Printed(function() SlashCmdList.COMPLETIONNAVIGATOR("next") end)
+
+    local firstWatch = CN.settleWatch
+
+    Printed(function() SlashCmdList.COMPLETIONNAVIGATOR("next") end)
+
+    assert(CN.settleWatch and CN.settleWatch ~= firstWatch,
+        "a second ask starts its own watch")
+
+    local hijackedTwice = {
+        type = "quest", id = 999002, name = "Superseded Watch Check",
+        score = 1e9,
+    }
+
+    local heldRecommend = CN.Recommend
+
+    CN.Recommend = function() return { hijackedTwice } end
+
+    instances.answered = true
+
+    local corrections = Printed(function() CN_TEST_DrainDeferred() end)
+
+    CN.Recommend = heldRecommend
+
+    local corrected = 0
+
+    for _, line in ipairs(corrections) do
+        if line:find("Superseded Watch Check", 1, true) then
+            corrected = corrected + 1
+        end
+    end
+
+    assert(corrected == 1,
+        "and the superseded one does not correct the same answer a second "
+        .. "time: " .. corrected .. " correction(s)")
+
+    ------------------------------------------------------------
+    -- A REPLY THAT NEVER COMES DOES NOT LEAVE A TIMER RUNNING.
+    ------------------------------------------------------------
+    -- The whole point of the caveat is a request that may not be answered.
+    -- Watching for one for the rest of the session is a leak, and a
+    -- correction that arrives a minute later corrects a sentence the player
+    -- scrolled past long ago.
+    CN.Blizzard.ForgetSavedInstanceRequest()
+
+    instances.answered = false
+
+    CN.Blizzard.RequestSavedInstances()
+
+    assert(CN.WhenServerRequestsSettle(3, function()
+        error("a request that was never answered must not settle")
+    end), "a watch can be started")
+
+    CN_TEST_DrainDeferred()
+
+    assert(CN.settleWatch == nil,
+        "an unanswered request gives up rather than watching for ever")
+
+    instances.answered    = true
+    waiting.inboxAnswered = true
+
+    CN.currentRecommendation = held
+
+    CN_TEST_DrainDeferred()
+
+    print("  a caveat in chat is resolved when the replies land")
+end)()
+
+------------------------------------------------------------
+-- AND EVERY SURFACE THAT READS THE NOTICE IS DECLARED. 1.11.0.
+------------------------------------------------------------
+-- 1.10.0's real hole was not in the function; it was that removing the call
+-- from all three surfaces left every assertion in this file passing. The
+-- assertions were then written by hand, one per surface, which fixes the
+-- three that exist and does nothing about the fourth.
+--
+-- This is the `notApplicable` shape Navigator Data's workflow comparison uses,
+-- turned on this addon's own source: the files that consult the notice are
+-- named here, and the scan is checked in BOTH directions. A new surface fails
+-- until it is listed, and a listed file that stopped consulting it fails too,
+-- so the list cannot rot into a description of a previous release.
+;(function()
+    local expected = {
+        ["Scoring.lua"]       = "the `/cn next` answer in chat",
+        ["Modules/Hud.lua"]   = "the heads-up line",
+        ["UI.lua"]            = "the window's Why block",
+    }
+
+    local found = {}
+
+    for _, relative in ipairs(CN_TEST_ADDON_FILES) do
+        if relative ~= "Core.lua" then
+            local source = CN_TEST_ReadAddonFile(relative)
+
+            if source and source:find("CN.ProvisionalNotice()", 1, true) then
+                found[relative] = true
+            end
+        end
+    end
+
+    for relative, what in pairs(expected) do
+        assert(found[relative],
+            relative .. " is listed as presenting the caveat (" .. what
+            .. ") and does not consult it any more")
+    end
+
+    for relative in pairs(found) do
+        assert(expected[relative],
+            relative .. " presents the caveat and is not in the list this "
+            .. "suite asserts, so nothing here covers it. Add it to the list "
+            .. "AND write the assertion.")
+    end
+
+    print("  every file that presents the caveat is one this suite covers")
+end)()
+
 print("\nALL HARNESS CHECKS PASSED")

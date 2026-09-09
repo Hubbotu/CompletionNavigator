@@ -52,4 +52,5 @@ CN.RegisterLocale("deDE", {
     ["Still hearing back about %s; this may change."] = "Warte noch auf %s; das kann sich noch Ã¤ndern.",
     ["your lockouts"] = "deine Instanz-Sperren",
     ["your mailbox"] = "deine Post",
+    ["The replies landed: %s rather than %s."] = "Die Antworten sind da: %s statt %s.",
 })

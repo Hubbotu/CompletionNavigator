@@ -95,6 +95,12 @@ CN.localeKeys = {
     "Still hearing back about %s; this may change.",
     "your lockouts",
     "your mailbox",
+
+    -- 1.11.0. The other half of the sentence above. The window and the
+    -- heads-up line redraw and so correct themselves; a printed line cannot,
+    -- so a caveat in chat had no resolution and made every answer suspect
+    -- without ever saying which ones were.
+    "The replies landed: %s rather than %s.",
 }
 
 -- REACHED THROUGH A VARIABLE, NOT A LITERAL.

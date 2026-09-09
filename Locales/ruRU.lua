@@ -45,4 +45,5 @@ CN.RegisterLocale("ruRU", {
     ["Still hearing back about %s; this may change."] = "Ð•Ñ‰Ñ‘ Ð¶Ð´Ñƒ Ð¾Ñ‚Ð²ÐµÑ‚: %s; ÑÑ‚Ð¾ Ð¼Ð¾Ð¶ÐµÑ‚ Ð¸Ð·Ð¼ÐµÐ½Ð¸Ñ‚ÑŒÑÑ.",
     ["your lockouts"] = "Ð²Ð°ÑˆÐ¸ Ð±Ð»Ð¾ÐºÐ¸Ñ€Ð¾Ð²ÐºÐ¸ Ð¿Ð¾Ð´Ð·ÐµÐ¼ÐµÐ»Ð¸Ð¹",
     ["your mailbox"] = "Ð²Ð°ÑˆÑƒ Ð¿Ð¾Ñ‡Ñ‚Ñƒ",
+    ["The replies landed: %s rather than %s."] = "ÐžÑ‚Ð²ÐµÑ‚Ñ‹ Ð¿Ð¾Ð»ÑƒÑ‡ÐµÐ½Ñ‹: %s Ð²Ð¼ÐµÑÑ‚Ð¾ %s.",
 })

@@ -5333,14 +5333,10 @@ mutate "Modules/Quests.lua" \
 mutate "Scoring.lua" \
     "        local provisional = CN.ProvisionalNotice()
 
-        if provisional then
-            CN.Print(\"|cffffc74f\" .. provisional .. \"|r\")
-        end" \
+        if provisional then" \
     "        local provisional = nil
 
-        if provisional then
-            CN.Print(\"|cffffc74f\" .. provisional .. \"|r\")
-        end" \
+        if provisional then" \
     "/cn next presents an incomplete answer without saying so"
 
 mutate "Modules/Hud.lua" \
@@ -5356,6 +5352,54 @@ mutate "UI.lua" \
     "        panel.why:SetText((provisional and (provisional .. \"\\n\\n\") or \"\")" \
     "        panel.why:SetText((false and (provisional .. \"\\n\\n\") or \"\")" \
     "the window's Why block claims more than the addon knows"
+
+mutate "Core.lua" \
+    "        if not CN.ProvisionalNotice() then
+            CN.settleWatch = nil" \
+    "        if true then
+            CN.settleWatch = nil" \
+    "the correction fires before the replies have landed"
+
+mutate "Core.lua" \
+    "        if waited >= timeout then
+            CN.settleWatch = nil
+
+            return
+        end" \
+    "        if false then
+            CN.settleWatch = nil
+
+            return
+        end" \
+    "a request that never comes back is watched for the rest of the session"
+
+mutate "Core.lua" \
+    "        if CN.settleWatch ~= mine then
+            return
+        end" \
+    "        if false then
+            return
+        end" \
+    "a superseded watch keeps running beside the one that replaced it"
+
+mutate "Scoring.lua" \
+    "                local now = CN.Recommend(1, true)[1]" \
+    "                local now = CN.Recommend(1)[1]" \
+    "a comparison the player never saw is counted as a row that was offered"
+
+mutate "Scoring.lua" \
+    "                if now.type == was.type and now.id == was.id then
+                    return
+                end" \
+    "                if false then
+                    return
+                end" \
+    "a rebuild of the same objective is announced as a changed answer"
+
+mutate "Scoring.lua" \
+    "                CN.currentRecommendation = now" \
+    "" \
+    "the correction names one objective and /cn go leads to another"
 
 mutate "Scoring.lua" \
     "            .. CN.Accent(\"/cn clock\") .. \" for what is on a timer.\")" \
